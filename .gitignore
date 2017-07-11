@@ -99,3 +99,6 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# lucky_man files
+lucky_man.csv
