@@ -4,66 +4,61 @@ import csv
 
 
 class FbLottery(object):
-    def __init__(self):
-        self.ACCESS_TOKEN = ''
-        self.page_url = 'https://www.facebook.com/pycone2016'
-        self.post_time = '2017-06-24T04:34:54+0000'
-        self.lucky_man_num = 5
+    def __init__(self, page_url, token):
+        self.graph_api_url = 'https://graph.facebook.com/v2.9'
+        self.access_token = token
+        self.page_url = page_url
+        self.page_id = self.get_page_id()
+        self.retrieve_limit = 1000
 
     def get_page_id(self):
-        url = 'https://graph.facebook.com/v2.9/{0}/?access_token={1}'.format(
-            self.page_url, self.ACCESS_TOKEN)
+        url = self.graph_api_url + '/{0}/?access_token={1}'.format(
+            self.page_url, self.access_token)
         data = requests.get(url).json()
-        return data['name'], data['id']
+        return data['id']
 
-    def get_page_post(self, page_id):
-        url = 'https://graph.facebook.com/v2.9/{0}/posts?access_token={1}'.format(
-            page_id, self.ACCESS_TOKEN)
+    def get_page_posts(self):
+        url = self.graph_api_url + '/{0}/posts?access_token={1}'.format(
+            self.page_id, self.access_token)
         data = requests.get(url).json()
-        return data
+        return data['data']
 
-    def get_lottery_post_id(self, page_posts):
-        for post in page_posts['data']:
-            if (post['created_time'] == self.post_time):
-                return post['id']
+    def get_lottery_post(self, title):
+        all_posts = self.get_page_posts()
+        for post in all_posts:
+            if title in post['message']:  # Also can use post['created_time'] to locate the post
+                return post
 
-    def get_lottery_post_message(self, lottery_post_id):
-        url = 'https://graph.facebook.com/v2.9/{0}/comments?limit=1000&access_token={1}'.format(
-            lottery_post_id, self.ACCESS_TOKEN)
+    def get_post_comments(self, post_id):
+        url = self.graph_api_url + '/{0}/comments?limit={1}&access_token={2}'.format(
+            post_id, self.retrieve_limit, self.access_token)
         data = requests.get(url).json()
-        fans = []
-        for message in data['data']:
-            fan = {}
-            fan['message'] = message['message']
-            fan['created_time'] = message['created_time']
-            fan['name'] = message['from']['name']
-            fan['id'] = message['from']['id']
-            fans.append(fan)
-        return fans
+        return data['data']
 
-    def draw_lucky_man(self, fans):
-        lucky_men = []
+    def draw(self, comments, num_of_prize):
+        fans = list()
+        for comment in comments:
+            fans.append({
+                'message': comment['message'],
+                'created_time': comment['created_time'],
+                'name': comment['from']['name'],
+                'id': comment['from']['id']
+            })
         random.shuffle(fans)
-        for i in range(self.lucky_man_num):
-            lucky_men.append(fans.pop())
-
-        with open('lucky_man.csv', 'w', encoding='utf-8') as csvfile:
+        draws = fans[:num_of_prize]
+        with open('draw.csv', 'w', encoding='utf-8') as csvfile:
             fieldnames = ['name', 'id', 'created_time', 'message']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
             writer.writeheader()
-            for lucky_man in lucky_men:
-                writer.writerow(lucky_man)
-
-
-def main():
-    fl = FbLottery()
-    page_name, page_id = fl.get_page_id()
-    page_posts = fl.get_page_post(page_id)
-    lottery_post_id = fl.get_lottery_post_id(page_posts)
-    fans = fl.get_lottery_post_message(lottery_post_id)
-    fl.draw_lucky_man(fans)
+            for draw in draws:
+                print(draw)
+                writer.writerow(draw)
 
 
 if __name__ == '__main__':
-    main()
+    ACCESS_TOKEN = 'YOUR_TOKEN'
+    fl = FbLottery('https://www.facebook.com/pycone2016', ACCESS_TOKEN)
+    lottery_post = fl.get_lottery_post('松果城市抽獎活動開跑囉')
+    # print('抽獎貼文:\n {0}'.format(lottery_post['message']))
+    lottery_post_comments = fl.get_post_comments(lottery_post['id'])
+    fl.draw(lottery_post_comments, 10)
