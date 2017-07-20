@@ -37,13 +37,18 @@ class FbLottery(object):
 
     def draw(self, comments, num_of_prize):
         fans = list()
+        user_ids = set()
         for comment in comments:
-            fans.append({
-                'message': comment['message'],
-                'created_time': comment['created_time'],
-                'name': comment['from']['name'],
-                'id': comment['from']['id']
-            })
+            if comment['from']['id'] in user_ids:
+                continue
+            else:
+                user_ids.add(comment['from']['id'])
+                fans.append({
+                    'message': comment['message'],
+                    'created_time': comment['created_time'],
+                    'name': comment['from']['name'],
+                    'id': comment['from']['id']
+                })
         random.shuffle(fans)
         draws = fans[:num_of_prize]
         with open('draw.csv', 'w', encoding='utf-8') as csvfile:
